@@ -11,8 +11,8 @@ namespace robot_localization_demo {
   TurtleOdometry::TurtleOdometry(ros::NodeHandle node_handle, double frequency,
       double error_vx_systematic, double error_vx_random, double error_wz_systematic, double error_wz_random, bool visualize):
     node_handle_{node_handle},
-    turtle_pose_subscriber_{node_handle_.subscribe("/world/turtle1/pose", 16, &TurtleOdometry::turtlePoseCallback, this)},
-    turtle_twist_publisher_{node_handle_.advertise<geometry_msgs::TwistWithCovarianceStamped>("/world/turtle1/sensors/twist", 16)},
+    turtle_pose_subscriber_{node_handle_.subscribe("turtle1/pose", 16, &TurtleOdometry::turtlePoseCallback, this)},
+    turtle_twist_publisher_{node_handle_.advertise<geometry_msgs::TwistWithCovarianceStamped>("turtle1/sensors/twist", 16)},
     frequency_{frequency},
     random_generator_{},
     random_distribution_vx_{error_vx_systematic, error_vx_random},
@@ -63,7 +63,7 @@ namespace robot_localization_demo {
         visualize_current_twist.request.linear = measurement.linear_velocity / frequency_;
         visualize_current_twist.request.angular = measurement.angular_velocity / frequency_;
         auto client = node_handle_.serviceClient<decltype(visualize_current_twist)>(
-            "/visualization/" + visualization_turtle_name_ + "/teleport_relative");
+            visualization_turtle_name_ + "/teleport_relative");
         client.call(visualize_current_twist);
       }
       // Sleep until we need to publish a new measurement.
@@ -78,12 +78,12 @@ namespace robot_localization_demo {
     // If this is the first message, initialize the visualization turtle.
     if(visualize_ && visualization_turtle_name_ == "") {
       // Spawn a new turtle and store its name.
-      ros::service::waitForService("/visualization/spawn");
+      ros::service::waitForService("spawn");
       turtlesim::Spawn spawn_visualization_turtle;
       spawn_visualization_turtle.request.x = message->x;
       spawn_visualization_turtle.request.y = message->y;
       spawn_visualization_turtle.request.theta = message->theta;
-      auto client = node_handle_.serviceClient<decltype(spawn_visualization_turtle)>("/visualization/spawn");
+      auto client = node_handle_.serviceClient<decltype(spawn_visualization_turtle)>("spawn");
       client.call(spawn_visualization_turtle);
       visualization_turtle_name_ = spawn_visualization_turtle.response.name;
       // Set pen color to blue.
@@ -94,7 +94,7 @@ namespace robot_localization_demo {
       configure_visualization_turtle.request.width = 1;
       configure_visualization_turtle.request.off = 0;
       auto client_configure = node_handle_.serviceClient<decltype(configure_visualization_turtle)>(
-          "/visualization/" + visualization_turtle_name_ + "/set_pen");
+          visualization_turtle_name_ + "/set_pen");
       client_configure.call(configure_visualization_turtle);
       // Log message.
       ROS_INFO("Relative position measurement (odometry) visualized by '%s' with a red pen.", visualization_turtle_name_.c_str());
