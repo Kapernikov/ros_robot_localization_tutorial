@@ -1,6 +1,7 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <tf/transform_datatypes.h>
 #include <turtlesim/Spawn.h>
+#include <turtlesim/SetPen.h>
 #include <turtlesim/TeleportAbsolute.h>
 #include <robot_localization_demo/positioning_system.hpp>
 
@@ -50,12 +51,12 @@ namespace robot_localization_demo {
       current_pose.pose.pose.position.z = 0.;
       current_pose.pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0., 0., measurement.theta);
       current_pose.pose.covariance = boost::array<double, 36>({
-          std::sqrt(random_distribution_x_.stddev()), 0., 0., 0., 0., 0.,
-          0., std::sqrt(random_distribution_y_.stddev()), 0., 0., 0., 0.,
+          std::pow(random_distribution_x_.mean() + random_distribution_x_.stddev(), 2), 0., 0., 0., 0., 0.,
+          0., std::pow(random_distribution_y_.mean() + random_distribution_y_.stddev(), 2), 0., 0., 0., 0.,
           0., 0., 0., 0., 0., 0.,
           0., 0., 0., 0., 0., 0.,
           0., 0., 0., 0., 0., 0.,
-          0., 0., 0., 0., 0., std::sqrt(random_distribution_yaw_.stddev())});
+          0., 0., 0., 0., 0., std::pow(random_distribution_yaw_.mean() + random_distribution_yaw_.stddev(), 2)});
       turtle_pose_publisher_.publish(current_pose);
       if(visualization_turtle_name_ != "") {
         // Move visualization turtle to the 'measured' position.
@@ -78,14 +79,27 @@ namespace robot_localization_demo {
     cached_pose_ = *message;
     // If this is the first message, initialize the visualization turtle.
     if(visualize_ && visualization_turtle_name_ == "") {
+      // Spawn a new turtle and store its name.
       ros::service::waitForService("/visualization/spawn");
       turtlesim::Spawn spawn_visualization_turtle;
       spawn_visualization_turtle.request.x = message->x;
       spawn_visualization_turtle.request.y = message->y;
       spawn_visualization_turtle.request.theta = message->theta;
-      auto client = node_handle_.serviceClient<decltype(spawn_visualization_turtle)>("/visualization/spawn");
-      client.call(spawn_visualization_turtle);
+      auto client_spawn = node_handle_.serviceClient<decltype(spawn_visualization_turtle)>("/visualization/spawn");
+      client_spawn.call(spawn_visualization_turtle);
       visualization_turtle_name_ = spawn_visualization_turtle.response.name;
+      // Set pen color to blue.
+      turtlesim::SetPen configure_visualization_turtle;
+      configure_visualization_turtle.request.r = 0;
+      configure_visualization_turtle.request.g = 0;
+      configure_visualization_turtle.request.b = 255;
+      configure_visualization_turtle.request.width = 1;
+      configure_visualization_turtle.request.off = 0;
+      auto client_configure = node_handle_.serviceClient<decltype(configure_visualization_turtle)>(
+          "/visualization/" + visualization_turtle_name_ + "/set_pen");
+      client_configure.call(configure_visualization_turtle);
+      // Log message.
+      ROS_INFO("Absolute position measurement visualized by '%s' with a blue pen.", visualization_turtle_name_.c_str());
     }
   }
 

@@ -12,7 +12,7 @@
   <node pkg="robot_localization_demo" type="positioning_system_node" name="turtle1_positioning_system_node"
         args="-f 1. -x 0.2 -y 0.2 -t 0.2 -v" output="screen" />
   <node pkg="robot_localization_demo" type="odometry_node" name="turtle1_odometry_node"
-        args="-f 10. -x 0.05 -X 0. -t 0. -T 0.05 -v" output="screen" />
+        args="-f 20. -x 0.05 -X 0. -t 0. -T 0.02 -v" output="screen" />
   <node pkg="robot_localization_demo" type="transformation_visualization_node" name="transformation_visualization_node"
         output="screen" />
 

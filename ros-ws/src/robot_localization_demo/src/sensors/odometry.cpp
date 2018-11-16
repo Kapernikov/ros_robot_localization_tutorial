@@ -1,6 +1,7 @@
 #include <geometry_msgs/TwistWithCovarianceStamped.h>
 #include <tf/transform_datatypes.h>
 #include <turtlesim/Spawn.h>
+#include <turtlesim/SetPen.h>
 #include <turtlesim/TeleportRelative.h>
 #include <robot_localization_demo/odometry.hpp>
 
@@ -49,12 +50,12 @@ namespace robot_localization_demo {
       current_twist.twist.twist.angular.y = 0.;
       current_twist.twist.twist.angular.z = measurement.angular_velocity;
       current_twist.twist.covariance = boost::array<double, 36>({
-          std::sqrt(random_distribution_vx_.stddev()), 0., 0., 0., 0., 0.,
+          std::pow(random_distribution_vx_.mean() + random_distribution_vx_.stddev(), 2), 0., 0., 0., 0., 0.,
           0., 0., 0., 0., 0., 0.,
           0., 0., 0., 0., 0., 0.,
           0., 0., 0., 0., 0., 0.,
           0., 0., 0., 0., 0., 0.,
-          0., 0., 0., 0., 0., std::sqrt(measurement.linear_velocity * random_distribution_wz_.stddev())});
+          0., 0., 0., 0., 0., std::pow(measurement.linear_velocity * (random_distribution_wz_.mean() + random_distribution_wz_.stddev()), 2)});
       turtle_twist_publisher_.publish(current_twist);
       if(visualization_turtle_name_ != "") {
         // Move visualization turtle to the 'measured' position.
@@ -76,6 +77,7 @@ namespace robot_localization_demo {
     cached_pose_ = *message;
     // If this is the first message, initialize the visualization turtle.
     if(visualize_ && visualization_turtle_name_ == "") {
+      // Spawn a new turtle and store its name.
       ros::service::waitForService("/visualization/spawn");
       turtlesim::Spawn spawn_visualization_turtle;
       spawn_visualization_turtle.request.x = message->x;
@@ -84,6 +86,18 @@ namespace robot_localization_demo {
       auto client = node_handle_.serviceClient<decltype(spawn_visualization_turtle)>("/visualization/spawn");
       client.call(spawn_visualization_turtle);
       visualization_turtle_name_ = spawn_visualization_turtle.response.name;
+      // Set pen color to blue.
+      turtlesim::SetPen configure_visualization_turtle;
+      configure_visualization_turtle.request.r = 255;
+      configure_visualization_turtle.request.g = 0;
+      configure_visualization_turtle.request.b = 0;
+      configure_visualization_turtle.request.width = 1;
+      configure_visualization_turtle.request.off = 0;
+      auto client_configure = node_handle_.serviceClient<decltype(configure_visualization_turtle)>(
+          "/visualization/" + visualization_turtle_name_ + "/set_pen");
+      client_configure.call(configure_visualization_turtle);
+      // Log message.
+      ROS_INFO("Relative position measurement (odometry) visualized by '%s' with a red pen.", visualization_turtle_name_.c_str());
     }
   }
 
