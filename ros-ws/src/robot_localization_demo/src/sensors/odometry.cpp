@@ -57,14 +57,8 @@ namespace robot_localization_demo {
           0., 0., 0., 0., 0., 0.,
           0., 0., 0., 0., 0., std::pow(measurement.linear_velocity * (random_distribution_wz_.mean() + random_distribution_wz_.stddev()), 2)});
       turtle_twist_publisher_.publish(current_twist);
-      if(visualization_turtle_name_ != "") {
-        // Move visualization turtle to the 'measured' position.
-        turtlesim::TeleportRelative visualize_current_twist;
-        visualize_current_twist.request.linear = measurement.linear_velocity / frequency_;
-        visualize_current_twist.request.angular = measurement.angular_velocity / frequency_;
-        auto client = node_handle_.serviceClient<decltype(visualize_current_twist)>(
-            visualization_turtle_name_ + "/teleport_relative");
-        client.call(visualize_current_twist);
+      if(isVisualizationRequested() && isVisualizationTurtleAvailable()) {
+        moveVisualizationTurtle(measurement);
       }
       // Sleep until we need to publish a new measurement.
       rate.sleep();
@@ -76,13 +70,20 @@ namespace robot_localization_demo {
     cached_pose_timestamp_ = ros::Time::now();
     cached_pose_ = *message;
     // If this is the first message, initialize the visualization turtle.
-    if(visualize_ && visualization_turtle_name_ == "") {
+    if(isVisualizationRequested() && !isVisualizationTurtleAvailable()) {
+      spawnAndConfigureVisualizationTurtle(*message);
+    }
+  }
+
+
+  void TurtleOdometry::spawnAndConfigureVisualizationTurtle(const turtlesim::Pose & initial_pose) {
+    if(isVisualizationRequested() && !isVisualizationTurtleAvailable()) {
       // Spawn a new turtle and store its name.
       ros::service::waitForService("spawn");
       turtlesim::Spawn spawn_visualization_turtle;
-      spawn_visualization_turtle.request.x = message->x;
-      spawn_visualization_turtle.request.y = message->y;
-      spawn_visualization_turtle.request.theta = message->theta;
+      spawn_visualization_turtle.request.x = initial_pose.x;
+      spawn_visualization_turtle.request.y = initial_pose.y;
+      spawn_visualization_turtle.request.theta = initial_pose.theta;
       auto client = node_handle_.serviceClient<decltype(spawn_visualization_turtle)>("spawn");
       client.call(spawn_visualization_turtle);
       visualization_turtle_name_ = spawn_visualization_turtle.response.name;
@@ -98,6 +99,19 @@ namespace robot_localization_demo {
       client_configure.call(configure_visualization_turtle);
       // Log message.
       ROS_INFO("Relative position measurement (odometry) visualized by '%s' with a red pen.", visualization_turtle_name_.c_str());
+    }
+  }
+
+
+  void TurtleOdometry::moveVisualizationTurtle(const turtlesim::Pose & measurement) {
+    if(isVisualizationRequested() && isVisualizationTurtleAvailable()) {
+      // Move visualization turtle to the 'measured' position.
+      turtlesim::TeleportRelative visualize_current_twist;
+      visualize_current_twist.request.linear = measurement.linear_velocity / frequency_;
+      visualize_current_twist.request.angular = measurement.angular_velocity / frequency_;
+      auto client = node_handle_.serviceClient<decltype(visualize_current_twist)>(
+          visualization_turtle_name_ + "/teleport_relative");
+      client.call(visualize_current_twist);
     }
   }
 

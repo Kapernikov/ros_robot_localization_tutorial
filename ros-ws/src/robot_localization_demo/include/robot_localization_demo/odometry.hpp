@@ -27,6 +27,10 @@ namespace robot_localization_demo {
       ros::Time cached_pose_timestamp_;
       turtlesim::Pose cached_pose_;
       void turtlePoseCallback(const turtlesim::PoseConstPtr & message);
+      inline bool isVisualizationRequested() { return visualize_; };
+      inline bool isVisualizationTurtleAvailable() { return visualization_turtle_name_ != ""; };
+      void spawnAndConfigureVisualizationTurtle(const turtlesim::Pose & initial_pose);
+      void moveVisualizationTurtle(const turtlesim::Pose & measurement);
   };
 
 }

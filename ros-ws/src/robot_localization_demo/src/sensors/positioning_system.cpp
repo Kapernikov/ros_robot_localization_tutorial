@@ -58,15 +58,8 @@ namespace robot_localization_demo {
           0., 0., 0., 0., 0., 0.,
           0., 0., 0., 0., 0., std::pow(random_distribution_yaw_.mean() + random_distribution_yaw_.stddev(), 2)});
       turtle_pose_publisher_.publish(current_pose);
-      if(visualization_turtle_name_ != "") {
-        // Move visualization turtle to the 'measured' position.
-        turtlesim::TeleportAbsolute visualize_current_pose;
-        visualize_current_pose.request.x = measurement.x;
-        visualize_current_pose.request.y = measurement.y;
-        visualize_current_pose.request.theta = measurement.theta;
-        auto client = node_handle_.serviceClient<decltype(visualize_current_pose)>(
-            visualization_turtle_name_ + "/teleport_absolute");
-        client.call(visualize_current_pose);
+      if(isVisualizationRequested() && isVisualizationTurtleAvailable()) {
+        moveVisualizationTurtle(measurement);
       }
       // Sleep until we need to publish a new measurement.
       rate.sleep();
@@ -78,13 +71,20 @@ namespace robot_localization_demo {
     cached_pose_timestamp_ = ros::Time::now();
     cached_pose_ = *message;
     // If this is the first message, initialize the visualization turtle.
-    if(visualize_ && visualization_turtle_name_ == "") {
+    if(isVisualizationRequested() && !isVisualizationTurtleAvailable()) {
+      spawnAndConfigureVisualizationTurtle(*message);
+    }
+  }
+
+
+  void TurtlePositioningSystem::spawnAndConfigureVisualizationTurtle(const turtlesim::Pose & initial_pose) {
+    if(isVisualizationRequested() && !isVisualizationTurtleAvailable()) {
       // Spawn a new turtle and store its name.
       ros::service::waitForService("spawn");
       turtlesim::Spawn spawn_visualization_turtle;
-      spawn_visualization_turtle.request.x = message->x;
-      spawn_visualization_turtle.request.y = message->y;
-      spawn_visualization_turtle.request.theta = message->theta;
+      spawn_visualization_turtle.request.x = initial_pose.x;
+      spawn_visualization_turtle.request.y = initial_pose.y;
+      spawn_visualization_turtle.request.theta = initial_pose.theta;
       auto client_spawn = node_handle_.serviceClient<decltype(spawn_visualization_turtle)>("spawn");
       client_spawn.call(spawn_visualization_turtle);
       visualization_turtle_name_ = spawn_visualization_turtle.response.name;
@@ -100,6 +100,20 @@ namespace robot_localization_demo {
       client_configure.call(configure_visualization_turtle);
       // Log message.
       ROS_INFO("Absolute position measurement visualized by '%s' using a blue pen.", visualization_turtle_name_.c_str());
+    }
+  }
+
+
+  void TurtlePositioningSystem::moveVisualizationTurtle(const turtlesim::Pose & measurement) {
+    if(isVisualizationRequested() && isVisualizationTurtleAvailable()) {
+      // Move visualization turtle to the 'measured' position.
+      turtlesim::TeleportAbsolute visualize_current_pose;
+      visualize_current_pose.request.x = measurement.x;
+      visualize_current_pose.request.y = measurement.y;
+      visualize_current_pose.request.theta = measurement.theta;
+      auto client = node_handle_.serviceClient<decltype(visualize_current_pose)>(
+          visualization_turtle_name_ + "/teleport_absolute");
+      client.call(visualize_current_pose);
     }
   }
 
